@@ -33,6 +33,12 @@ class Unit {
         this.back_image = "";
         this.is_named_char = false;
         this.is_battleline = false;
+        this.wargear_abilities = [];
+        this.core_abilities = [];
+        this.faction_abilities = [];
+        this.abilities = [];
+        this.invuln = "None";
+        this.damaged = "NA";
     }
 }
 
@@ -44,6 +50,7 @@ class Unit_stats {
         this.W = "";
         this.LD = "";
         this.OC = "";
+        this.stats_target = ""
     }
 }
 
@@ -111,9 +118,26 @@ class Weapon {
         this.weapon_stats = {};
     }
 }
+
+class Wargear_ability {
+    constructor(ability_name) {
+        this.ability_name = ability_name;
+        this.ability_text = "";
+    }
+}
+
+class Unit_ability {
+    constructor(ability_name) {
+        this.ability_name = ability_name;
+        this.ability_text = "";
+    }
+}
 /**
  * Constants
  */
+
+const BOLD = 1;
+const weapon_details_loc_limit = 10;
 
 const category_troop_uuid = "5d76b6f5-20ae-4d70-8f59-ade72a2add3a"
 
@@ -240,10 +264,14 @@ function parse_datasheet_front(faction, datasheet_text){
     if (datasheet_text[line].R[0].TS[1] === 19){
         unit = new Unit(datasheet_text[line].R[0].T);
         line++;
+        if (datasheet_text[line].R[0].TS[3] === 1){
+            unit.unit_name += datasheet_text[line].R[0].T;
+            line++
+        }
 
         // get stats
         do {
-            if(datasheet_text[line].R[0].T.search("KEYWORDS") !== -1){
+            if((datasheet_text[line].R[0].T.search("KEYWORDS") !== -1)  && (datasheet_text[line].x < 12)){
                 line++;
                 const keywords = datasheet_text[line].R[0].T.split(',');
                 unit.keywords = keywords;
@@ -254,9 +282,10 @@ function parse_datasheet_front(faction, datasheet_text){
                 do {
 
                     let weapon = new Weapon(datasheet_text[line].R[0].T, "RANGED WEAPON");
-                    if (datasheet_text[line + 1].x < 11) {
-                        weapon.weapon_notes = datasheet_text[line + 1].R[0].T.slice(1, -1).split(",");
-                        line = line + 2;
+                    line++;
+                    if (datasheet_text[line].x < 11) {
+                        weapon.weapon_notes = datasheet_text[line].R[0].T.slice(1, -1).split(",");
+                        line++;
                     }
                     weapon.weapon_stats = new Weapon_stats_ranged();
                     weapon.weapon_stats.Range = datasheet_text[line].R[0].T;
@@ -272,9 +301,9 @@ function parse_datasheet_front(faction, datasheet_text){
                         weapon.weapon_notes = datasheet_text[line].R[0].T;
                     }
                     unit.unit_ranged_weapons.push(weapon);
-                } while (datasheet_text[line].R[0].TS[1] !== 12);
+                } while (datasheet_text[line].R[0].TS[1] < 11.5);
             }
-            if(datasheet_text[line].R[0].T.search("MELEE") != -1) {
+            if(datasheet_text[line].R[0].T.search("MELEE") !== -1) {
                 line = line + 7;
                 do {
 
@@ -298,8 +327,107 @@ function parse_datasheet_front(faction, datasheet_text){
                         weapon.weapon_abilities = datasheet_text[line].R[0].T;
                     }
                     unit.unit_melee_weapons.push(weapon);
-                } while ((datasheet_text[line].R[0].TS[1] !== 16) && (datasheet_text[line].R[0].T.search("FACTION") !== -1));
+                } while ((datasheet_text[line].R[0].TS[1] !== 16) && (datasheet_text[line].R[0].T.search("FACTION") === -1));
             }
+
+            if(datasheet_text[line].R[0].T === "ABILITIES") {
+                do {
+                    line++;
+                    if (datasheet_text[line].R[0].T.search("CORE") !== -1) {
+                        line++
+                        unit.core_abilities = datasheet_text[line].R[0].T.split(",");
+                        line++;
+                    }
+                    if (datasheet_text[line].R[0].T.search("FACTION") !== -1) {
+                        line++
+                        unit.faction_abilities = datasheet_text[line].R[0].T;
+                        line++;
+                    }
+
+                    if ((datasheet_text[line].R[0].TS[2] = BOLD) && (datasheet_text[line].R[0].T.search(":") !== -1)) {
+                        do {
+                            let ability = new Unit_ability(datasheet_text[line].R[0].T)
+                            line++;
+                            do {
+                                ability.ability_text += datasheet_text[line].R[0].T;
+                                line++;
+                            } while ((
+                                !((datasheet_text[line].R[0].T.search(":") > -1) && (datasheet_text[line].R[0].TS[2]==1))
+                                && (datasheet_text[line].R[0].TS[1] === 10.5)))
+                            unit.abilities.push(ability);
+                        } while ((datasheet_text[line].R[0].TS[1] === 10.5))
+                    }
+                } while (datasheet_text[line].R[0].TS[1] === 10.5);
+            }
+
+            if(datasheet_text[line].R[0].T.search("WARGEAR ABILITIES") !== -1) {
+                line++;
+                do {
+                    if ((datasheet_text[line].R[0].TS[2] = BOLD) && (datasheet_text[line].R[0].T.search(":") !== -1)) {
+                        let wargear_ability = new Wargear_ability(datasheet_text[line].R[0].T)
+                        line++;
+                        do {
+                            wargear_ability.ability_text += datasheet_text[line].R[0].T;
+                            line++;
+                        } while ((datasheet_text[line].R[0].TS[2] != BOLD) && (datasheet_text[line].R[0].T.search(":") === -1))
+                        unit.wargear_abilities.push(wargear_ability);
+                    }
+                } while ((datasheet_text[line].R[0].TS[1] !== 12) && (datasheet_text[line].x < 21));
+            }
+
+            if(datasheet_text[line].R[0].T.search("DAMAGED") !== -1){
+                line++
+                do {
+                    unit.damaged = datasheet_text[line].R[0].T;
+                    line++
+                } while ((datasheet_text[line].R[0].TS[1] === 10.5))
+
+            }
+
+            if(datasheet_text[line].R[0].T.search("INVULNERABLE SAVE") !== -1){
+                line++
+                unit.invuln = datasheet_text[line].R[0].T;
+                line++
+            }
+
+            if(datasheet_text[line].R[0].T === "M")  {// time to get the stats
+                line = line + 6;
+                do {
+                    let stats = new Unit_stats();
+                    stats.M = datasheet_text[line].R[0].T
+                    stats.T = datasheet_text[line+1].R[0].T
+                    stats.SV = datasheet_text[line+2].R[0].T
+                    stats.W = datasheet_text[line+3].R[0].T
+                    stats.LD = datasheet_text[line+4].R[0].T
+                    stats.OC = datasheet_text[line+5].R[0].T
+                    line = line + 6;
+                    stats.stats_target = unit.unit_name;
+
+                    unit.unit_stats.push(stats);
+                    if(line >= datasheet_text.length){
+                        break;
+                    }
+                } while (datasheet_text[line].R[0].TS[1] === 18)
+            } else if(datasheet_text[line].R[0].T === "T")  {// time to get the stats
+                line = line + 5;
+                do {
+                    let stats = new Unit_stats();
+                    stats.M = "20+";
+                    stats.T = datasheet_text[line].R[0].T;
+                    stats.SV = datasheet_text[line+1].R[0].T;
+                    stats.W = datasheet_text[line+2].R[0].T;
+                    stats.LD = datasheet_text[line+3].R[0].T;
+                    stats.OC = datasheet_text[line+4].R[0].T;
+                    line = line + 7;
+                    stats.stats_target = unit.unit_name;
+
+                    unit.unit_stats.push(stats);
+                    if(line >= datasheet_text.length){
+                        break;
+                    }
+                } while (datasheet_text[line].R[0].TS[1] === 18)
+            }
+
             line++;
         }while(line < datasheet_text.length);
         // get Abilities
@@ -419,8 +547,8 @@ async function parse_index(source_path, cb){
                     break;
                 }
                 case "datasheet":{
-                    console.log("datasheet");
                     if (parse_datasheet_order === "front"){
+                        console.log("adding unit");
                         parse_datasheet_front(faction, page.Texts)
                         parse_datasheet_order = "back";
                     } else {
@@ -434,7 +562,7 @@ async function parse_index(source_path, cb){
         }
         page_num++;
     });
-    /*
+
     pdfParser.on("pdfParser_dataReady", pdfData => {
         console.log("time to make the data");
         cb(datasheet_obj)
@@ -447,7 +575,7 @@ async function parse_index(source_path, cb){
         });
     });
 
-     */
+
 
     pdfParser.loadPDF(source_path);
 
@@ -671,5 +799,5 @@ function generate_all_cats(full_faction_list_obj){
  * Playground
  */
 
-//parse_index('./datasources/Orks.pdf');
+parse_index('./datasources/Orks.pdf');
 //parse_munitorium('./test.pdf','./output/test.json');
