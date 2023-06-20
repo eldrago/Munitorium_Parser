@@ -4,6 +4,7 @@ import PDFParser from "pdf2json";
 
 const pdfParser = new PDFParser();
 
+
 /**
  * Class Definitions
  */
@@ -22,6 +23,10 @@ class Faction {
 class Unit {
     constructor(unit_name) {
         this.unit_name = unit_name;
+        this.unit_stats = [];
+        this.unit_ranged_weapons = [];
+        this.unit_melee_weapons = [];
+        this.keywords = "";
         this.num_models = "";
         this.pts_cost  = "";
         this.front_image = "";
@@ -31,6 +36,38 @@ class Unit {
     }
 }
 
+class Unit_stats {
+    constructor() {
+        this.M = "";
+        this.T = "";
+        this.SV = "";
+        this.W = "";
+        this.LD = "";
+        this.OC = "";
+    }
+}
+
+class Weapon_stats_ranged {
+    constructor() {
+        this.Range = "";
+        this.A = "";
+        this.BS = "";
+        this.S = "";
+        this.AP = "";
+        this.D = "";
+    }
+}
+
+class Weapon_stats_melee {
+    constructor() {
+        this.Range = "Melee";
+        this.A = "";
+        this.WS = "";
+        this.S = "";
+        this.AP = "";
+        this.D = "";
+    }
+}
 class Enhancement {
     constructor(enhancement_name) {
         this.enhancement_name = enhancement_name;
@@ -62,6 +99,16 @@ class Strat {
         this.strat_when = '';
         this.strat_target = '';
         this.strat_effect = '';
+    }
+}
+
+class Weapon {
+    constructor(weapon_name, type) {
+        this.weapon_name = weapon_name;
+        this.weapon_type = type;
+        this.weapon_notes = "";
+        this.weapon_keywords=[];
+        this.weapon_stats = {};
     }
 }
 /**
@@ -126,7 +173,6 @@ function parse_strat(faction, strat_text){
     }while(line < strat_text.length);
 }
 
-
 function parse_army_rule(rule_text){
     let line=0;
     do {
@@ -187,13 +233,101 @@ function parse_enhancement(faction, enhancement_text){
 
     }while(line < enhancement_text.length);
 }
-/**
- * STUB
- * TODO: Will parse the datasheet
- * @param datasheet
- */
-function parse_datasheet(faction, datasheet){
-    console.log("No really I am parsing this datasheet");
+
+function parse_datasheet_front(faction, datasheet_text){
+    let line=0;
+    let unit = {};
+    if (datasheet_text[line].R[0].TS[1] === 19){
+        unit = new Unit(datasheet_text[line].R[0].T);
+        line++;
+
+        // get stats
+        do {
+            if(datasheet_text[line].R[0].T.search("KEYWORDS") !== -1){
+                line++;
+                const keywords = datasheet_text[line].R[0].T.split(',');
+                unit.keywords = keywords;
+                line++
+            }
+            if(datasheet_text[line].R[0].T.search("RANGED") != -1) {
+                line= line+7;
+                do {
+
+                    let weapon = new Weapon(datasheet_text[line].R[0].T, "RANGED WEAPON");
+                    if (datasheet_text[line + 1].x < 11) {
+                        weapon.weapon_notes = datasheet_text[line + 1].R[0].T.slice(1, -1).split(",");
+                        line = line + 2;
+                    }
+                    weapon.weapon_stats = new Weapon_stats_ranged();
+                    weapon.weapon_stats.Range = datasheet_text[line].R[0].T;
+                    weapon.weapon_stats.A = datasheet_text[line + 1].R[0].T;
+                    weapon.weapon_stats.BS = datasheet_text[line + 2].R[0].T;
+                    weapon.weapon_stats.S = datasheet_text[line + 3].R[0].T;
+                    weapon.weapon_stats.AP = datasheet_text[line + 4].R[0].T;
+                    weapon.weapon_stats.D = datasheet_text[line + 5].R[0].T;
+                    line = line + 6
+
+                    if ((datasheet_text[line].R[0].TS[2] === 1) && (datasheet_text[line].R[0].TS[1] !== 12)) {
+                        line++;
+                        weapon.weapon_notes = datasheet_text[line].R[0].T;
+                    }
+                    unit.unit_ranged_weapons.push(weapon);
+                } while (datasheet_text[line].R[0].TS[1] !== 12);
+            }
+            if(datasheet_text[line].R[0].T.search("MELEE") != -1) {
+                line = line + 7;
+                do {
+
+                    let weapon = new Weapon(datasheet_text[line].R[0].T, "MELEE WEAPON");
+                    line++;
+                    if (datasheet_text[line].x < 11) {
+                        weapon.weapon_keywords = datasheet_text[line].R[0].T.slice(1, -1).split(",");
+                        line++;
+                    }
+                    weapon.weapon_stats = new Weapon_stats_melee();
+                    line++;
+                    weapon.weapon_stats.A  = datasheet_text[line].R[0].T;
+                    weapon.weapon_stats.WS = datasheet_text[line+1].R[0].T;
+                    weapon.weapon_stats.S  = datasheet_text[line+2].R[0].T;
+                    weapon.weapon_stats.AP = datasheet_text[line+3].R[0].T;
+                    weapon.weapon_stats.D  = datasheet_text[line+4].R[0].T;
+                    line = line + 5;
+
+                    if ((datasheet_text[line].R[0].TS[2] === 1) && (datasheet_text[line].R[0].TS[1] !== 12)) {
+                        line++;
+                        weapon.weapon_abilities = datasheet_text[line].R[0].T;
+                    }
+                    unit.unit_melee_weapons.push(weapon);
+                } while ((datasheet_text[line].R[0].TS[1] !== 16) && (datasheet_text[line].R[0].T.search("FACTION") !== -1));
+            }
+            line++;
+        }while(line < datasheet_text.length);
+        // get Abilities
+
+    } else {
+        line++;
+    }
+    faction.units.push(unit);
+
+}
+
+function parse_datasheet_back(faction, datasheet_text){
+    let line=0;
+    if (datasheet_text[line].R[0].TS[1] === 16){
+        let unit = new Unit(datasheet_text[line].R[0].T);
+        line++;
+
+        // get wargear options
+        // get unit composition
+        // get right side
+        do {
+
+        }while(line < datasheet_text.length);
+
+
+    } else {
+        line++;
+    }
 
 }
 
@@ -213,12 +347,10 @@ async function parse_index(source_path, cb){
     let faction = {};
     let detachment = {};
 
-    let all = []
-
+    let parse_datasheet_order = "front";
     // events
     pdfParser.on("data", page => {
 
-        console.log(page.Texts.length);
         let page_type = "datasheet";
         if(page.Texts.length === 0){
             let page_type = "picture";
@@ -255,7 +387,6 @@ async function parse_index(source_path, cb){
                 //console.log("Line %d:  %s",index, line_output);
 
             }); // clean text
-            all.push(page.Texts);
 
             if(!faction_determined){
                 console.log("Faction: ", page.Texts[0].R[0].T);
@@ -270,45 +401,44 @@ async function parse_index(source_path, cb){
 
             switch (page_type){
                 case "ARMY RULE": {
-                    console.log("ARMY RULE");
                     faction.army_rule = parse_army_rule(page.Texts);
-                    console.log("%s : \n %s", faction.army_rule.army_rule_name, faction.army_rule.rule_details);
+                    console.log("%s\n%s", faction.army_rule.army_rule_name, faction.army_rule.rule_details);
                     break;
                 }
                 case "DETACHMENT RULE": {
-                    console.log("DETACHMENT RULE");
                     parse_detachment_rule(faction, page.Texts);
-                    console.log("%s : \n %s", faction.detachment.detachment_rule_name, faction.detachment.rule_details);
+                    console.log("%s\n%s", faction.detachment.detachment_rule_name, faction.detachment.rule_details);
                     break;
                 }
                 case "STRATAGEMS": {
-                    console.log("STRATAGEMS -");
                     parse_strat(faction, page.Texts);
                     break;
                 }
                 case "ENHANCEMENTS": {
                     parse_enhancement(faction, page.Texts);
-                    console.log("ENHANCEMENTS");
                     break;
                 }
                 case "datasheet":{
-                    parse_datasheet(faction, page.Texts)
                     console.log("datasheet");
+                    if (parse_datasheet_order === "front"){
+                        parse_datasheet_front(faction, page.Texts)
+                        parse_datasheet_order = "back";
+                    } else {
+                        parse_datasheet_back(faction, page.Texts)
+                        parse_datasheet_order = "front";
+                    }
                     break;
                 }
                 default: break;
             }
-
-
         }
-
-        console.log('page ' + page_num);
         page_num++;
     });
+    /*
     pdfParser.on("pdfParser_dataReady", pdfData => {
         console.log("time to make the data");
         cb(datasheet_obj)
-        fs.writeFile("./output/test.json", JSON.stringify(armies), (err) => {
+        fs.writeFile("./output/test.json", JSON.stringify(faction), (err) => {
             if (err) {
                 console.log(err);
             } else {
@@ -316,6 +446,8 @@ async function parse_index(source_path, cb){
             }
         });
     });
+
+     */
 
     pdfParser.loadPDF(source_path);
 
@@ -343,7 +475,6 @@ function parse_munitorium(source_path, output_path){
                     line_output += word.T;
                 })
             });
-
 
             if (page.Texts[0].R[0].T !== "DETACHMENT ENHANCEMENTS") {
                 const current_faction = new Faction(page.Texts[0].R[0].T);
