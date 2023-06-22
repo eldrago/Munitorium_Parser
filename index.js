@@ -474,10 +474,10 @@ function parse_datasheet_location_based(faction, datasheet){
             line++
         }
         console.log("Adding unit %s", unit.unit_name);
-        parse_stats(unit, datasheet);
-        parse_weapons(unit, datasheet);
+       // parse_stats(unit, datasheet);
+       // parse_weapons(unit, datasheet);
         parse_keywords(unit, datasheet);
-        parse_right_hand_data(unit, datasheet);
+       // parse_right_hand_data(unit, datasheet);
 
         faction.units.push(unit);
     } else {
@@ -765,12 +765,12 @@ async function parse_index(source_path, cb){
             switch (page_type){
                 case "ARMY RULE": {
                     faction.army_rule = parse_army_rule(page.Texts);
-                    console.log("%s\n%s", faction.army_rule.army_rule_name, faction.army_rule.rule_details);
+                    //console.log("%s\n%s", faction.army_rule.army_rule_name, faction.army_rule.rule_details);
                     break;
                 }
                 case "DETACHMENT RULE": {
                     parse_detachment_rule(faction, page.Texts);
-                    console.log("%s\n%s", faction.detachment.detachment_rule_name, faction.detachment.rule_details);
+                    //console.log("%s\n%s", faction.detachment.detachment_rule_name, faction.detachment.rule_details);
                     break;
                 }
                 case "STRATAGEMS": {
