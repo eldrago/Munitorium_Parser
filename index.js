@@ -37,8 +37,8 @@ class Unit {
         this.core_abilities = [];
         this.faction_abilities = [];
         this.abilities = [];
-        this.invuln = "None";
-        this.damaged = "NA";
+        this.invuln = "";
+        this.damaged = "";
     }
 }
 
@@ -50,7 +50,7 @@ class Unit_stats {
         this.W = "";
         this.LD = "";
         this.OC = "";
-        this.stats_target = ""
+        this.model = ""
     }
 }
 
@@ -258,8 +258,231 @@ function parse_enhancement(faction, enhancement_text){
     }while(line < enhancement_text.length);
 }
 
+const unitname_x = .99;
+const unitname_y = 1.05;
+const keywords_x = 1.69;
+const keywords_y = 19.969;
+const left_hand_window_x = 21.001;
+const stats_x = 1.17;
+const stats_y = 2.835;
+const weapons_x = 1;
+const weapons_y = 1;
+
+function parse_stats(unit, datasheet){
+    let stats_array = datasheet.filter(line => ((line.y > 2.7)&&(line.y<6)&&(line.x<20)))
+        .sort((l1, l2)=> (l1.x > l2.x) ? 1 : (l1.x < l2.x) ? -1 : 0)
+        .sort((l1, l2)=> (l1.y > l2.y) ? 1 : (l1.y < l2.y) ? -1 : 0);
+    console.log("parsing stats");
+    let line = 0;
+    do {
+
+        let stats = new Unit_stats();
+        if (stats_array.length > 6) {
+            stats.model = stats_array[line].R[0].T;
+            line++;
+        } else {
+            stats.model = unit.unit_name;
+        }
+        stats.M = stats_array[line].R[0].T;
+        stats.T = stats_array[line + 1].R[0].T;
+        stats.SV = stats_array[line + 2].R[0].T;
+        stats.W = stats_array[line + 3].R[0].T;
+        stats.LD = stats_array[line + 4].R[0].T;
+        stats.OC = stats_array[line + 5].R[0].T;
+        line = line +6;
+
+        unit.unit_stats.push(stats);
+    } while (line < stats_array.length);
+
+}
+
+function parse_weapons(unit, datasheet) {
+    let array = datasheet.filter(line => ((line.y > 6) && (line.y < 18) && (line.x > 2) && (line.x < 20)))
+        .sort((l1, l2)=> (l1.x > l2.x) ? 1 : (l1.x < l2.x) ? -1 : 0)
+        .sort((l1, l2)=> (l1.y > l2.y) ? 1 : (l1.y < l2.y) ? -1 : 0);
+
+    console.log("parsing weapons");
+    let line = 0;
+
+    if (array[line].R[0].T === "RANGED WEAPONS") {
+        line = 7;
+        do {
+            let weapon = new Weapon(array[line].R[0].T, "RANGED WEAPON");
+            line++;
+            if (array[line].x < 11) {
+                weapon.weapon_keywords = array[line].R[0].T.slice(1, -1).split(",");
+                line++;
+            }
+            weapon.weapon_stats = new Weapon_stats_ranged();
+            weapon.weapon_stats.Range = array[line].R[0].T;
+            weapon.weapon_stats.A = array[line + 1].R[0].T;
+            weapon.weapon_stats.BS = array[line + 2].R[0].T;
+            weapon.weapon_stats.S = array[line + 3].R[0].T;
+            weapon.weapon_stats.AP = array[line + 4].R[0].T;
+            weapon.weapon_stats.D = array[line + 5].R[0].T;
+            line = line + 6
+
+            if ((array[line].R[0].TS[2] === 1) && (array[line].R[0].TS[1] !== 12)) {
+                line++;
+                weapon.weapon_notes = array[line].R[0].T;
+            }
+            unit.unit_ranged_weapons.push(weapon);
+
+        } while (array[line].R[0].TS[1] < 11.5) ;
+    }
+
+    if (array[line].R[0].T === "MELEE WEAPONS") {
+        line = line + 7;
+        do {
+
+            let weapon = new Weapon(array[line].R[0].T, "MELEE WEAPON");
+            line++;
+            if (array[line].x < 11) {
+                weapon.weapon_keywords = array[line].R[0].T.slice(1, -1).split(",");
+                line++;
+            }
+            weapon.weapon_stats = new Weapon_stats_melee();
+            line++;
+            weapon.weapon_stats.A = array[line].R[0].T;
+            weapon.weapon_stats.WS = array[line + 1].R[0].T;
+            weapon.weapon_stats.S = array[line + 2].R[0].T;
+            weapon.weapon_stats.AP = array[line + 3].R[0].T;
+            weapon.weapon_stats.D = array[line + 4].R[0].T;
+            line = line + 5;
+            if(line < array.length){
+                if ((array[line].R[0].TS[2] === 1) && (array[line].R[0].TS[1] !== 12)) {
+                    line++;
+                    weapon.weapon_abilities = array[line].R[0].T;
+                }
+            }
+
+            unit.unit_melee_weapons.push(weapon);
+        } while (line < array.length);
+    }
+}
+
+
+function parse_keywords(unit, datasheet){
+    let array = datasheet.filter(line => ((line.y > 19)&&(line.y < 20)&&(line.x>1)&&(line.x<20)))
+        .sort((l1, l2)=> (l1.x > l2.x) ? 1 : (l1.x < l2.x) ? -1 : 0)
+        .sort((l1, l2)=> (l1.y > l2.y) ? 1 : (l1.y < l2.y) ? -1 : 0);
+
+    console.log("Parsing Keywords");
+
+    const keywords = array[1].R[0].T.split(',');
+    unit.keywords = keywords;
+}
+
+function parse_right_hand_data(unit, datasheet){
+    let filtered_text = datasheet.filter(line => ((line.y > 6)&&(line.y < 18)&&(line.x>20)))
+        .sort((l1, l2)=> (l1.x > l2.x) ? 1 : (l1.x < l2.x) ? -1 : 0)
+        .sort((l1, l2)=> (l1.y > l2.y) ? 1 : (l1.y < l2.y) ? -1 : 0);
+
+    let line = 0;
+    console.log("parsing right hand side data");
+    let abilities_start = filtered_text.indexOf(filtered_text.find((line=>line.R[0].T === "ABILITIES")));
+    let wargear_abilities_start = filtered_text.indexOf(filtered_text.find((line=>line.R[0].T === "WARGEAR ABILITIES")));
+    let damaged_start = filtered_text.indexOf(filtered_text.find((line=>line.R[0].T.includes("DAMAGED"))));
+    let invuln_start = filtered_text.indexOf(filtered_text.find((line=>line.R[0].T === "INVULNERABLE SAVE")));
+
+    let end_pointer = filtered_text.length - 1;
+    if (invuln_start !== -1){
+        unit.invuln = filtered_text[invuln_start + 1].R[0].T;
+        end_pointer = invuln_start;
+    }
+
+    if (damaged_start !== -1){
+        let damaged_end = end_pointer;
+        let line = damaged_start + 1;
+        do {
+            unit.damaged += filtered_text[line].R[0].T;
+            line++
+        } while (line < damaged_end)
+        end_pointer = damaged_start;
+    }
+
+    if (wargear_abilities_start !== -1){
+        let wargear_abilities_end = end_pointer;
+
+        let line = wargear_abilities_start + 1;
+        do {
+            if ((filtered_text[line].R[0].TS[2] = BOLD) && (filtered_text[line].R[0].T.search(":") !== -1)) {
+                let wargear_ability = new Wargear_ability(filtered_text[line].R[0].T)
+                line++;
+                do {
+                    wargear_ability.ability_text += filtered_text[line].R[0].T;
+                    if (line< wargear_abilities_end)
+                        line++;
+                } while ((line< wargear_abilities_end) && (filtered_text[line].R[0].TS[2] != BOLD) && (filtered_text[line].R[0].T.search(":") === -1))
+                unit.wargear_abilities.push(wargear_ability);
+            }
+        } while (line < wargear_abilities_end);
+
+        end_pointer = wargear_abilities_start;
+    }
+
+    if (abilities_start !== -1) {
+        let abilities_end = end_pointer;
+        line = abilities_start + 1;
+
+        if (filtered_text[line].R[0].T.search("CORE") !== -1) {
+            line++
+            unit.core_abilities = filtered_text[line].R[0].T.split(",");
+            if (line < abilities_end)
+                line++;
+        }
+        if (filtered_text[line].R[0].T.search("FACTION") !== -1) {
+            line++
+            unit.faction_abilities = filtered_text[line].R[0].T;
+            if (line < abilities_end)
+                line++;
+        }
+
+        if ((filtered_text[line].R[0].TS[2] = BOLD) && (filtered_text[line].R[0].T.search(":") !== -1)) {
+            do {
+                let ability = new Unit_ability(filtered_text[line].R[0].T)
+                do {
+                    line++;
+                    if (!((filtered_text[line].R[0].T.search(":") > -1) && (filtered_text[line].R[0].TS[2] == 1))){
+                        ability.ability_text += filtered_text[line].R[0].T;
+                    }
+
+                } while (
+                    !((filtered_text[line].R[0].T.search(":") > -1) && (filtered_text[line].R[0].TS[2] == 1))
+                    && (line < abilities_end - 1));
+                unit.abilities.push(ability);
+            } while (line < abilities_end - 1)
+        }
+    }
+}
+
+function parse_datasheet_location_based(faction, datasheet){
+    let line=0;
+
+    let unit = {};
+    if (datasheet[line].R[0].TS[1] === 19) {
+        unit = new Unit(datasheet[line].R[0].T);
+        line++;
+        if (datasheet[line].R[0].TS[3] === 1) {
+            unit.unit_name += datasheet[line].R[0].T;
+            line++
+        }
+        console.log("Adding unit %s", unit.unit_name);
+        parse_stats(unit, datasheet);
+        parse_weapons(unit, datasheet);
+        parse_keywords(unit, datasheet);
+        parse_right_hand_data(unit, datasheet);
+
+        faction.units.push(unit);
+    } else {
+        console.log("PROBLEM");
+    }
+
+}
+
 function parse_datasheet_front(faction, datasheet_text){
     let line=0;
+
     let unit = {};
     if (datasheet_text[line].R[0].TS[1] === 19){
         unit = new Unit(datasheet_text[line].R[0].T);
@@ -268,7 +491,11 @@ function parse_datasheet_front(faction, datasheet_text){
             unit.unit_name += datasheet_text[line].R[0].T;
             line++
         }
-
+        console.log("Adding unit %s", unit.unit_name);
+        parse_stats(unit, datasheet_text);
+        parse_weapons(unit, datasheet_text);
+        parse_keywords(unit, datasheet_text);
+        parse_right_hand_data(unit, datasheet_text);
         // get stats
         do {
             if((datasheet_text[line].R[0].T.search("KEYWORDS") !== -1)  && (datasheet_text[line].x < 12)){
@@ -418,7 +645,7 @@ function parse_datasheet_front(faction, datasheet_text){
                     stats.W = datasheet_text[line+2].R[0].T;
                     stats.LD = datasheet_text[line+3].R[0].T;
                     stats.OC = datasheet_text[line+4].R[0].T;
-                    line = line + 7;
+                    line = line + 5;
                     stats.stats_target = unit.unit_name;
 
                     unit.unit_stats.push(stats);
@@ -429,7 +656,7 @@ function parse_datasheet_front(faction, datasheet_text){
             }
 
             line++;
-        }while(line < datasheet_text.length);
+        }while(line < (datasheet_text.length - 2 ));
         // get Abilities
 
     } else {
@@ -503,7 +730,9 @@ async function parse_index(source_path, cb){
                     word.T = word.T.replaceAll('%5B', "[" );
                     word.T = word.T.replaceAll('%5D', "]" );
                     word.T = word.T.replaceAll('%22', '"' );
+                    word.T = word.T.replaceAll('%3D', ' ' );
                     word.T = word.T.replaceAll('%%E2%80%A6', '...' );
+
                     if(word.TS[1]==24){
                         page_type = word.T;
                     } else {
@@ -548,8 +777,8 @@ async function parse_index(source_path, cb){
                 }
                 case "datasheet":{
                     if (parse_datasheet_order === "front"){
-                        console.log("adding unit");
-                        parse_datasheet_front(faction, page.Texts)
+                        //parse_datasheet_front(faction, page.Texts);
+                        parse_datasheet_location_based(faction, page.Texts);
                         parse_datasheet_order = "back";
                     } else {
                         parse_datasheet_back(faction, page.Texts)
