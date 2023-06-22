@@ -301,40 +301,14 @@ function parse_weapons(unit, datasheet) {
         .sort((l1, l2)=> (l1.x > l2.x) ? 1 : (l1.x < l2.x) ? -1 : 0)
         .sort((l1, l2)=> (l1.y > l2.y) ? 1 : (l1.y < l2.y) ? -1 : 0);
 
-    console.log("parsing weapons");
-    let line = 0;
+    let ranged_start = array.indexOf(array.find((line=>line.R[0].T === "RANGED WEAPONS")));
+    let melee_start = array.indexOf(array.find((line=>line.R[0].T === "MELEE WEAPONS")));
+    let end_pointer = array.length - 1;
 
-    if (array[line].R[0].T === "RANGED WEAPONS") {
-        line = 7;
+    if (melee_start !== -1) {
+        let melee_end = end_pointer;
+        let line = melee_start + 7;
         do {
-            let weapon = new Weapon(array[line].R[0].T, "RANGED WEAPON");
-            line++;
-            if (array[line].x < 11) {
-                weapon.weapon_keywords = array[line].R[0].T.slice(1, -1).split(",");
-                line++;
-            }
-            weapon.weapon_stats = new Weapon_stats_ranged();
-            weapon.weapon_stats.Range = array[line].R[0].T;
-            weapon.weapon_stats.A = array[line + 1].R[0].T;
-            weapon.weapon_stats.BS = array[line + 2].R[0].T;
-            weapon.weapon_stats.S = array[line + 3].R[0].T;
-            weapon.weapon_stats.AP = array[line + 4].R[0].T;
-            weapon.weapon_stats.D = array[line + 5].R[0].T;
-            line = line + 6
-
-            if ((array[line].R[0].TS[2] === 1) && (array[line].R[0].TS[1] !== 12)) {
-                line++;
-                weapon.weapon_notes = array[line].R[0].T;
-            }
-            unit.unit_ranged_weapons.push(weapon);
-
-        } while (array[line].R[0].TS[1] < 11.5) ;
-    }
-
-    if (array[line].R[0].T === "MELEE WEAPONS") {
-        line = line + 7;
-        do {
-
             let weapon = new Weapon(array[line].R[0].T, "MELEE WEAPON");
             line++;
             if (array[line].x < 11) {
@@ -357,8 +331,40 @@ function parse_weapons(unit, datasheet) {
             }
 
             unit.unit_melee_weapons.push(weapon);
-        } while (line < array.length);
+        } while (line < melee_end);
+        end_pointer = melee_start;
     }
+
+    if (ranged_start !== -1) {
+        let ranged_end = end_pointer;
+        let line = ranged_start + 7;
+        do {
+            let weapon = new Weapon(array[line].R[0].T, "RANGED WEAPON");
+            line++;
+            if (array[line].x < 11) {
+                weapon.weapon_keywords = array[line].R[0].T.slice(1, -1).split(",");
+                line++;
+            }
+            weapon.weapon_stats = new Weapon_stats_ranged();
+            weapon.weapon_stats.Range = array[line].R[0].T;
+            weapon.weapon_stats.A = array[line + 1].R[0].T;
+            weapon.weapon_stats.BS = array[line + 2].R[0].T;
+            weapon.weapon_stats.S = array[line + 3].R[0].T;
+            weapon.weapon_stats.AP = array[line + 4].R[0].T;
+            weapon.weapon_stats.D = array[line + 5].R[0].T;
+            line = line + 6
+
+            if (line < ranged_end){
+                if ((array[line].R[0].TS[2] === 1) && (array[line].R[0].TS[1] !== 12)) {
+                    line++;
+                    weapon.weapon_notes = array[line].R[0].T;
+                }
+            }
+            unit.unit_ranged_weapons.push(weapon);
+
+        } while (line < ranged_end);
+    }
+
 }
 
 
